@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartBiz AI | Enterprise Intelligence Hub</title>
+
+<!-- Fonts & Frameworks -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+    :root {
+        --bg: #03050a;
+        --card: rgba(13, 17, 28, 0.7);
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.3);
+        --text: #f1f5f9;
+        --text-muted: #94a3b8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        overflow-x: hidden;
+    }
+
+    #canvas-container {    console.log(analyticsData);
+    console.log(dataset?.length);
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    .glass {
+        background: var(--card);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        transition: all 0.3s ease;
+    }
+
+    .nav-tab.active {
+        color: var(--accent);
+        border-bottom: 2px solid var(--accent);
+    }
+
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    
+    .btn-glow { box-shadow: 0 0 20px var(--accent-glow); }
+    
+    .chat-bubble {
+        max-width: 85%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+    .animate-float { animation: float 4s ease-in-out infinite; }
+
+    input::placeholder { color: #475569; }
+
+    .fade-overlay {
+        transition: opacity 0.5s ease-in-out, visibility 0.5s;
+    }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<!-- Login Screen -->
+<div id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm transition-all duration-500">
+    <div class="glass max-w-md w-full p-8 space-y-8 animate-float">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center btn-glow mx-auto mb-4">
+                <i class="fas fa-shield-halved text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-white">Access Portal</h1>
+            <p class="text-slate-400 text-sm mt-2">Enter credentials to unlock Intelligence Hub</p>
+        </div>
+        
+        <form onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 ml-1">Username</label>
+                <input type="text" id="username" required value="admin"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-all text-sm">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 ml-1">Password</label>
+                <input type="password" id="password" required value="password"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-all text-sm">
+            </div>
+            <div id="login-error" class="hidden text-xs text-rose-500 text-center font-bold">Invalid username or password</div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl btn-glow transition-all">
+                SECURE LOGIN
+            </button>
+        </form>
+        <p class="text-center text-[10px] text-slate-500 uppercase tracking-widest font-bold">Hint: admin / password</p>
+    </div>
+</div>
+
+<!-- Main Hub Interface -->
+<div id="hub-interface" class="hidden relative z-10 flex flex-col min-h-screen opacity-0 transition-opacity duration-1000">
+    
+    <!-- Navbar -->
+    <nav class="sticky top-0 w-full glass rounded-none border-x-0 border-t-0 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center btn-glow">
+                <i class="fas fa-brain text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-xl tracking-tight">SMARTBIZ<span class="text-blue-500">AI</span></h1>
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Enterprise Intelligence v2.0</p>
+            </div>
+        </div>
+
+        <div class="hidden md:flex items-center gap-8">
+            <button onclick="showTab('home')" class="nav-tab active px-2 py-1 text-sm font-semibold transition-all">Command Center</button>
+            <button onclick="showTab('predictions')" class="nav-tab px-2 py-1 text-sm font-semibold text-slate-400 hover:text-white transition-all">Predictions</button>
+            <button onclick="showTab('assistant')" class="nav-tab px-2 py-1 text-sm font-semibold text-slate-400 hover:text-white transition-all">AI Assistant</button>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <label class="cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2">
+                <i class="fas fa-cloud-upload-alt text-blue-400"></i>
+                UPLOAD CSV
+                <input type="file" id="csvUpload" accept=".csv" class="hidden">
+            </label>
+            <div class="h-6 w-px bg-white/10 mx-2"></div>
+            <button onclick="handleLogout()" class="text-slate-400 hover:text-white transition-all flex items-center gap-2">
+                <i class="fas fa-power-off text-sm"></i>
+                <span class="hidden sm:inline text-xs font-bold">LOGOUT</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full">
+        
+        <!-- Landing State -->
+        <div id="landing-state" class="flex flex-col items-center justify-center text-center py-20 space-y-6">
+            <div class="w-24 h-24 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin mb-4" id="upload-spinner" style="display:none;"></div>
+            <div class="animate-float" id="landing-icon">
+                <i class="fas fa-chart-network text-6xl text-blue-500/50"></i>
+            </div>
+            <h2 class="text-4xl font-extrabold tracking-tight">Intelligence Ready, <span class="text-blue-500">Admin</span>.</h2>
+            <p class="text-slate-400 max-w-md mx-auto text-lg">Your workspace is secured. Upload your business data (CSV) to initialize the predictive engine.</p>
+            <div class="flex gap-4">
+                <button onclick="document.getElementById('csvUpload').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full btn-glow transition-all">
+                    Initialize Hub
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard State -->
+        <div id="dashboard-state" class="hidden space-y-8 animate-in fade-in duration-700">
+            
+            <!-- KPI Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass p-6">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Gross Revenue</p>
+                    <h3 class="text-2xl font-bold" id="kpi-revenue">$0.00</h3>
+                    <div class="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
+                        <i class="fas fa-arrow-up"></i> LIVE DATA
+                    </div>
+                </div>
+                <div class="glass p-6">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Unique Customers</p>
+                    <h3 class="text-2xl font-bold" id="kpi-customers">0</h3>
+                    <div class="mt-2 flex items-center gap-1 text-[10px] text-blue-400 font-bold">
+                        <i class="fas fa-users"></i> ACTIVE POOL
+                    </div>
+                </div>
+                <div class="glass p-6">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Average Churn Risk</p>
+                    <h3 class="text-2xl font-bold text-rose-500" id="kpi-churn">0%</h3>
+                    <div class="mt-2 flex items-center gap-1 text-[10px] text-rose-400 font-bold">
+                        <i class="fas fa-exclamation-triangle"></i> PREDICTIVE MODEL
+                    </div>
+                </div>
+                <div class="glass p-6">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Market Segment</p>
+                    <h3 class="text-2xl font-bold" id="kpi-segment">--</h3>
+                    <div class="mt-2 flex items-center gap-1 text-[10px] text-purple-400 font-bold">
+                        <i class="fas fa-bullseye"></i> TOP PERFORMER
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Home / Command Center -->
+            <section id="tab-home" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass p-6 h-[400px] flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="font-bold flex items-center gap-2">
+                            <i class="fas fa-analytics text-blue-500"></i>
+                            Regional Revenue Split
+                        </h4>
+                    </div>
+                    <div class="flex-grow">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+                <div class="glass p-6 h-[400px] flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="font-bold flex items-center gap-2">
+                            <i class="fas fa-layer-group text-purple-500"></i>
+                            Category Performance
+                        </h4>
+                    </div>
+                    <div class="flex-grow">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Predictions -->
+            <section id="tab-predictions" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 glass overflow-hidden">
+                    <div class="p-6 border-b border-white/5 bg-white/[0.02]">
+                        <h4 class="font-bold text-rose-400"><i class="fas fa-user-minus mr-2"></i>Churn Prediction Engine</h4>
+                        <p class="text-xs text-slate-500 mt-1">Identified customers with high probability of discontinuing service based on order frequency.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-white/5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                <tr>
+                                    <th class="px-6 py-4">Customer</th>
+                                    <th class="px-6 py-4">Region</th>
+                                    <th class="px-6 py-4">Risk Level</th>
+                                    <th class="px-6 py-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="churnTable" class="text-sm divide-y divide-white/5">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="glass p-6">
+                        <h4 class="font-bold text-blue-400 mb-4"><i class="fas fa-lightbulb mr-2"></i>AI Strategy</h4>
+                        <div id="recs" class="space-y-4">
+                            <!-- Recommendations injected here -->
+                        </div>
+                    </div>
+                    <div class="glass p-6 bg-blue-600/5 border-blue-500/20">
+                        <h4 class="font-bold mb-2">System Confidence</h4>
+                        <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden mb-2">
+                            <div class="bg-blue-500 h-full w-[94%]"></div>
+                        </div>
+                        <p class="text-[10px] text-slate-500">Prediction accuracy based on historical variance: 94.2%</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Assistant -->
+            <section id="tab-assistant" class="hidden flex flex-col h-[650px] max-w-4xl mx-auto glass overflow-hidden">
+                <div class="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-bold uppercase tracking-widest text-slate-400">Hub Agent Active</span>
+                    </div>
+                    <select id="chatLang" class="bg-white/5 border border-white/10 rounded-lg text-xs font-bold px-3 py-1 outline-none text-blue-400">
+                        <option value="en">ENGLISH</option>
+                        <option value="hi">HINDI / हिंदी</option>
+                        <option value="te">TELUGU / తెలుగు</option>
+                    </select>
+                </div>
+                <div id="chatMessages" class="flex-grow overflow-y-auto p-6 space-y-4 scrollbar-hide">
+                    <div class="flex gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+                            <i class="fas fa-robot text-xs"></i>
+                        </div>
+                        <div class="chat-bubble bg-white/5 border border-white/10">
+                            System initialized. I've mapped the current dataset. You can ask me about regional sales, churn risks, or top-performing categories in multiple languages.
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 bg-white/[0.02] border-t border-white/5">
+                    <div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                        <button onclick="sendQuick('Top regions?')" class="whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all">Regional Analysis</button>
+                        <button onclick="sendQuick('Who is at risk?')" class="whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all">Churn Warnings</button>
+                        <button onclick="sendQuick('Sales summary')" class="whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all">Revenue Stats</button>
+                    </div>
+                    <form onsubmit="handleChat(event)" class="flex gap-2">
+                        <input type="text" id="chatInput" placeholder="Query the neural engine..." class="flex-grow bg-white/5 border border-white/10 rounded-2xl px-5 py-3 outline-none focus:border-blue-500 transition-all text-sm">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 w-12 h-12 rounded-2xl flex items-center justify-center transition-all btn-glow">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </main>
+</div>
+
+<!-- Modal / Toast -->
+<div id="toast" class="fixed bottom-8 right-8 glass px-6 py-4 translate-y-32 opacity-0 transition-all duration-500 z-[100] border-blue-500/30">
+    <div class="flex items-center gap-3">
+        <i class="fas fa-check-circle text-blue-500"></i>
+        <span id="toast-text" class="text-sm font-bold">Training Complete</span>
+    </div>
+</div>
+
+<script>
+// ─────────────────────────────────────
+// AUTHENTICATION LOGIC
+// ─────────────────────────────────────
+function handleLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+    const error = document.getElementById('login-error');
+
+    if (user === 'admin' && pass === 'password') {
+        document.getElementById('login-screen').classList.add('opacity-0', 'pointer-events-none');
+        const hub = document.getElementById('hub-interface');
+        hub.classList.remove('hidden');
+        setTimeout(() => hub.classList.add('opacity-100'), 50);
+        showToast("Access Granted. Welcome, Admin.");
+    } else {
+        error.classList.remove('hidden');
+        setTimeout(() => error.classList.add('hidden'), 3000);
+    }
+}
+
+function handleLogout() {
+    const hub = document.getElementById('hub-interface');
+    hub.classList.add('opacity-0');
+    setTimeout(() => {
+        hub.classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('opacity-0', 'pointer-events-none');
+        document.getElementById('username').value = 'admin';
+        document.getElementById('password').value = 'password';
+        document.getElementById('dashboard-state').classList.add('hidden');
+        document.getElementById('landing-state').style.display = 'flex';
+        document.getElementById('landing-icon').style.display = 'block';
+        analyticsData = { revenue: 0, customers: {}, categories: {}, regions: {}, churnList: [] };
+    }, 500);
+}
+
+// ─────────────────────────────────────
+// THREE.JS NEURAL BACKGROUND
+// ─────────────────────────────────────
+let scene, camera, renderer, particles, brainMesh;
+
+function init3D() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const group = new THREE.Group();
+    const geo = new THREE.IcosahedronGeometry(2.5, 2);
+    const mat = new THREE.MeshPhongMaterial({
+        color: 0x3b82f6,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.15
+    });
+    brainMesh = new THREE.Mesh(geo, mat);
+    group.add(brainMesh);
+
+    const pGeo = new THREE.BufferGeometry();
+    const pCount = 1500;
+    const pPos = new Float32Array(pCount * 3);
+    for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random() - 0.5) * 20;
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    const pMat = new THREE.PointsMaterial({ color: 0x3b82f6, size: 0.02 });
+    particles = new THREE.Points(pGeo, pMat);
+    group.add(particles);
+
+    scene.add(group);
+    
+    const light = new THREE.PointLight(0xffffff, 1, 100);
+    light.position.set(10, 10, 10);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    camera.position.z = 8;
+
+    function animate() {
+        requestAnimationFrame(animate);
+        brainMesh.rotation.y += 0.002;
+        brainMesh.rotation.x += 0.001;
+        particles.rotation.y -= 0.0005;
+        
+        const scale = 1 + Math.sin(Date.now() * 0.001) * 0.05;
+        brainMesh.scale.set(scale, scale, scale);
+        
+        renderer.render(scene, camera);
+    }
+    animate();
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+init3D();
+
+// ─────────────────────────────────────
+// DATA PROCESSING & ML SIMULATION
+// ─────────────────────────────────────
+let analyticsData = {
+    revenue: 0,
+    customers: {},
+    categories: {},
+    regions: {},
+    churnList: []
+};
+
+document.getElementById('csvUpload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    document.getElementById('landing-icon').style.display = 'none';
+    document.getElementById('upload-spinner').style.display = 'block';
+
+    Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        complete: function(results) {
+            processCSV(results.data);
+        }
+    });
+});
+
+function processCSV(data) {
+    analyticsData = { revenue: 0, customers: {}, categories: {}, regions: {}, churnList: [] };
+
+    data.forEach(row => {
+        if(!row.Sales) return;
+        
+        const sales = parseFloat(row.Sales);
+        analyticsData.revenue += sales;
+
+        const cat = row.Category || 'Other';
+        analyticsData.categories[cat] = (analyticsData.categories[cat] || 0) + sales;
+
+        const reg = row.Region || 'Unknown';
+        analyticsData.regions[reg] = (analyticsData.regions[reg] || 0) + sales;
+
+        const cid = row['Customer ID'];
+        if(cid) {
+            if(!analyticsData.customers[cid]) {
+                analyticsData.customers[cid] = { name: row['Customer Name'], sales: 0, orders: 0, region: reg };
+            }
+            analyticsData.customers[cid].sales += sales;
+            analyticsData.customers[cid].orders += 1;
+        }
+    });
+
+    Object.keys(analyticsData.customers).forEach(id => {
+        const c = analyticsData.customers[id];
+        if(c.orders < 3) {
+            analyticsData.churnList.push({
+                name: c.name,
+                region: c.region,
+                orders: c.orders,
+                risk: Math.floor(80 + Math.random() * 15)
+            });
+        }
+    });
+
+    setTimeout(() => {
+        document.getElementById('landing-state').style.display = 'none';
+        document.getElementById('dashboard-state').classList.remove('hidden');
+        renderDashboard();
+        showToast("Hub Initialized: " + data.length + " events mapped.");
+    }, 1500);
+}
+
+function renderDashboard() {
+    document.getElementById('kpi-revenue').textContent = "$" + analyticsData.revenue.toLocaleString(undefined, {maximumFractionDigits: 0});
+    document.getElementById('kpi-customers').textContent = Object.keys(analyticsData.customers).length.toLocaleString();
+    
+    const churnAvg = analyticsData.churnList.length / Object.keys(analyticsData.customers).length * 100;
+    document.getElementById('kpi-churn').textContent = churnAvg.toFixed(1) + "%";
+
+    const topCat = Object.entries(analyticsData.categories).sort((a,b) => b[1] - a[1])[0][0];
+    document.getElementById('kpi-segment').textContent = topCat;
+
+    renderCharts();
+    renderPredictions();
+}
+
+let charts = {};
+function renderCharts() {
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    if(charts.main) charts.main.destroy();
+    charts.main = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(analyticsData.categories),
+            datasets: [{
+                label: 'Revenue by Cuisine',
+                data: Object.values(analyticsData.categories),
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 12
+            }]
+        },
+        options: chartOpts()
+    });
+
+    const ctx2 = document.getElementById('categoryChart').getContext('2d');
+    if(charts.cat) charts.cat.destroy();
+    charts.cat = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(analyticsData.regions),
+            datasets: [{
+                data: Object.values(analyticsData.regions),
+                backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#f97316'],
+                borderWidth: 0,
+                hoverOffset: 20
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } }
+        }
+    });
+}
+
+function renderPredictions() {
+    const table = document.getElementById('churnTable');
+    table.innerHTML = '';
+    
+    analyticsData.churnList.slice(0, 10).forEach(c => {
+        const riskClass = c.risk > 90 ? 'text-rose-500' : 'text-orange-400';
+        table.innerHTML += `
+            <tr class="hover:bg-white/[0.02] transition-all">
+                <td class="px-6 py-4 font-bold text-xs">${c.name}</td>
+                <td class="px-6 py-4 text-slate-500 text-xs">${c.region}</td>
+                <td class="px-6 py-4 font-black ${riskClass} text-xs">${c.risk}% RISK</td>
+                <td class="px-6 py-4">
+                    <button class="bg-white/5 border border-white/10 px-3 py-1 rounded text-[9px] font-black uppercase hover:bg-blue-600/20 hover:border-blue-500/30 transition-all">Engage</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    const recs = document.getElementById('recs');
+    recs.innerHTML = `
+        <div class="p-4 bg-white/5 rounded-xl border-l-4 border-blue-500">
+            <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">Growth Lever</p>
+            <p class="text-xs">Based on regional patterns, increasing ${Object.keys(analyticsData.categories)[0]} inventory in the ${Object.keys(analyticsData.regions)[0]} region could boost margins by 12%.</p>
+        </div>
+        <div class="p-4 bg-white/5 rounded-xl border-l-4 border-rose-500">
+            <p class="text-[10px] font-bold text-rose-400 uppercase mb-1">Retention Strategy</p>
+            <p class="text-xs">A 15% discount coupon for customers in 'Critical Risk' should be triggered immediately to prevent exit.</p>
+        </div>
+    `;
+}
+
+// ─────────────────────────────────────
+// ASSISTANT LOGIC (MULTI-LANGUAGE)
+// ─────────────────────────────────────
+const botKnowledge = {
+    en: {
+        hi: "Hub Engine Online. I have mapped your revenue at ${rev}. How can I assist?",
+        sales: "Our top region is ${reg} with $${val} in sales.",
+        churn: "I've flagged ${count} customers at high churn risk. Urgent attention required.",
+        default: "I can analyze sales by region, category performance, or churn risk. What would you like to see?"
+    },
+    hi: {
+        hi: "हब इंजन ऑनलाइन। आपका कुल राजस्व ${rev} है। मैं आपकी कैसे मदद कर सकता हूँ?",
+        sales: "हमारा शीर्ष क्षेत्र ${reg} है जिसमें $${val} की बिक्री हुई है।",
+        churn: "मैंने ${count} ग्राहकों को उच्च जोखिम में पाया है। तत्काल ध्यान देने की आवश्यकता है।",
+        default: "मैं क्षेत्र, श्रेणी प्रदर्शन या ग्राहक जोखिम का विश्लेषण कर सकता हूँ।"
+    },
+    te: {
+        hi: "హబ్ ఇంజిన్ సిద్ధంగా ఉంది. మీ మొత్తం రాబడి ${rev}. నేను మీకు ఎలా సహాయపడగలను?",
+        sales: "మన అగ్ర ప్రాంతం ${reg}, అక్కడ $${val} అమ్మకాలు జరిగాయి.",
+        churn: "నేను ${count} మంది కస్టమర్లను రిస్క్‌లో గుర్తించాను. వెంటనే చర్య తీసుకోవాలి.",
+        default: "నేను అమ్మకాలు, కేటగిరీ పనితీరు లేదా కస్టమర్ రిస్క్ గురించి సమాచారం ఇవ్వగలను."
+    }
+};
+
+async function handleChat(e) {
+    if(e) e.preventDefault();
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim().toLowerCase();
+    if(!msg) return;
+
+    input.value = '';
+    addMessage(msg, 'user');
+
+    const botId = Date.now();
+    addMessage('<i class="fas fa-circle-notch animate-spin"></i> Analyzing data...', 'bot', botId);
+
+    await new Promise(r => setTimeout(r, 1000));
+
+    const lang = document.getElementById('chatLang').value;
+    const topRegEntry = Object.entries(analyticsData.regions).sort((a,b) => b[1] - a[1])[0] || ['N/A', 0];
+    
+    let reply = botKnowledge[lang].default;
+    
+    if(msg.includes('sales') || msg.includes('revenue') || msg.includes('region') || msg.includes('बिक्री') || msg.includes('అమ్మకాలు')) {
+        reply = botKnowledge[lang].sales
+            .replace('${reg}', topRegEntry[0])
+            .replace('${val}', topRegEntry[1].toLocaleString());
+    } else if (msg.includes('risk') || msg.includes('churn') || msg.includes('जोखिम') || msg.includes('రిస్క్')) {
+        reply = botKnowledge[lang].churn.replace('${count}', analyticsData.churnList.length);
+    } else if (msg.includes('hi') || msg.includes('hello')) {
+        reply = botKnowledge[lang].hi.replace('${rev}', analyticsData.revenue.toLocaleString());
+    }
+
+    const botDiv = document.getElementById(`msg-${botId}`);
+    botDiv.innerHTML = reply;
+}
+
+function addMessage(text, sender, id = null) {
+    const chat = document.getElementById('chatMessages');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex gap-3 ${sender === 'user' ? 'justify-end' : ''}`;
+    
+    const bubbleClass = sender === 'user' ? 'bg-blue-600 text-white' : 'bg-white/5 border border-white/10';
+    const icon = sender === 'user' ? 'user' : 'robot';
+    
+    msgDiv.innerHTML = `
+        ${sender === 'bot' ? `<div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0"><i class="fas fa-robot text-xs"></i></div>` : ''}
+        <div id="msg-${id || Date.now()}" class="chat-bubble ${bubbleClass}">${text}</div>
+        ${sender === 'user' ? `<div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0"><i class="fas fa-user text-xs"></i></div>` : ''}
+    `;
+    
+    chat.appendChild(msgDiv);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function sendQuick(txt) {
+    document.getElementById('chatInput').value = txt;
+    handleChat();
+}
+
+// ─────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────
+function navigateTo(viewId){
+    const knownViews = ['view-init','view-dashboard','view-analytics','view-predictions','view-operations','view-ai'];
+    knownViews.forEach(v => document.getElementById(v).classList.add('hidden'));
+
+    const target = document.getElementById(`view-${viewId}`);
+    if(!target){ console.warn('Unknown view', viewId); return; }
+
+    if(viewId !== 'init' && dataset.length === 0){
+        showToast('Please upload data first', 2500);
+        document.getElementById('view-init').classList.remove('hidden');
+        return;
+    }
+
+    target.classList.remove('hidden');
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('nav-active'));
+    const navBtn = document.getElementById(`nav-${viewId}`);
+    if(navBtn) navBtn.classList.add('nav-active');
+}
+
+function showTab(id) {
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    
+    document.getElementById(`tab-${id}`).classList.remove('hidden');
+    event.target.classList.add('active');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = msg;
+    t.classList.remove('translate-y-32', 'opacity-0');
+    setTimeout(() => t.classList.add('translate-y-32', 'opacity-0'), 4000);
+}
+
+function chartOpts() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', font: { size: 10 } } }
+        }
+    };
+}
+</script>
+</body>
+</html>
